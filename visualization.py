@@ -11,7 +11,6 @@ st.title("📊 Dataset Visualization Dashboard")
 # DATASET UPLOAD
 # ======================================
 st.subheader("📤 Upload Dataset")
-
 uploaded_file = st.file_uploader(
     "Upload CSV file (must contain 'text' and 'airline_sentiment' columns)",
     type=["csv"]
@@ -32,7 +31,6 @@ else:
 # SENTIMENT DISTRIBUTION
 # ======================================
 st.subheader("Sentiment Distribution")
-
 sent_counts = df["airline_sentiment"].value_counts().reset_index()
 sent_counts.columns = ["Sentiment", "Count"]
 
@@ -42,7 +40,6 @@ fig_sent = px.bar(
     y="Count",
     title="Sentiment Distribution"
 )
-
 st.plotly_chart(fig_sent, use_container_width=True)
 
 # ======================================
@@ -62,7 +59,6 @@ emotion_model = load_emotion_model()
 # EMOTION DISTRIBUTION (SAMPLED)
 # ======================================
 st.subheader("Emotion Distribution")
-
 sample_df = df.sample(min(300, len(df)), random_state=42)
 sample_df["emotion"] = sample_df["text"].apply(
     lambda x: emotion_model(x)[0]["label"]
@@ -77,14 +73,12 @@ fig_emo = px.bar(
     y="Count",
     title="Emotion Distribution"
 )
-
 st.plotly_chart(fig_emo, use_container_width=True)
 
 # ======================================
 # WORD CLOUD - BY SENTIMENT
 # ======================================
 st.subheader("☁️ WordCloud by Sentiment")
-
 col1, col2 = st.columns(2)
 
 with col1:
@@ -93,11 +87,13 @@ with col1:
     wc_pos = WordCloud(
         width=600, height=400, background_color="white"
     ).generate(pos_text)
-
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_pos, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+    
+    # FIX: Create new figure and close after rendering
+    fig_pos, ax_pos = plt.subplots(figsize=(6, 4))
+    ax_pos.imshow(wc_pos, interpolation="bilinear")
+    ax_pos.axis("off")
+    st.pyplot(fig_pos)
+    plt.close(fig_pos)  # ✅ Clear figure
 
 with col2:
     st.write("Negative Reviews")
@@ -105,17 +101,18 @@ with col2:
     wc_neg = WordCloud(
         width=600, height=400, background_color="white"
     ).generate(neg_text)
-
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_neg, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+    
+    # FIX: Create new figure and close after rendering
+    fig_neg, ax_neg = plt.subplots(figsize=(6, 4))
+    ax_neg.imshow(wc_neg, interpolation="bilinear")
+    ax_neg.axis("off")
+    st.pyplot(fig_neg)
+    plt.close(fig_neg)  # ✅ Clear figure
 
 # ======================================
-# WORD CLOUD - BY EMOTION ⭐ NEW
+# WORD CLOUD - BY EMOTION ⭐ FIXED
 # ======================================
 st.subheader("☁️ WordCloud by Emotion")
-
 selected_emotion = st.selectbox(
     "Select Emotion",
     sorted(sample_df["emotion"].unique())
@@ -131,11 +128,13 @@ if emotion_text.strip():
         height=400,
         background_color="white"
     ).generate(emotion_text)
-
-    plt.figure(figsize=(8,4))
-    plt.imshow(wc_emotion, interpolation="bilinear")
-    plt.axis("off")
-    plt.title(f"WordCloud for Emotion: {selected_emotion.capitalize()}")
-    st.pyplot(plt)
+    
+    # FIX: Create new figure with explicit axes and close after rendering
+    fig_emotion, ax_emotion = plt.subplots(figsize=(8, 4))
+    ax_emotion.imshow(wc_emotion, interpolation="bilinear")
+    ax_emotion.axis("off")
+    ax_emotion.set_title(f"WordCloud for Emotion: {selected_emotion.capitalize()}")
+    st.pyplot(fig_emotion)
+    plt.close(fig_emotion)  # ✅ Clear figure to prevent overlap
 else:
     st.warning("Not enough text for selected emotion.")
