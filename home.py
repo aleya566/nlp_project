@@ -2,140 +2,75 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from transformers import pipeline
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
 
-st.title("📊 Dataset Visualization Dashboard")
+st.title("📝 Live Sentiment & Emotion Analysis")
 
-# ======================================
-# DATASET UPLOAD
-# ======================================
-st.subheader("📤 Upload Dataset")
-
-uploaded_file = st.file_uploader(
-    "Upload CSV file (must contain 'text' and 'airline_sentiment' columns)",
-    type=["csv"]
-)
-
-@st.cache_data
-def load_default_data():
-    return pd.read_csv("data/Tweets.csv")
-
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("Custom dataset loaded successfully!")
-else:
-    df = load_default_data()
-    st.info("Using default Tweets.csv dataset")
-
-# ======================================
-# SENTIMENT DISTRIBUTION
-# ======================================
-st.subheader("Sentiment Distribution")
-
-sent_counts = df["airline_sentiment"].value_counts().reset_index()
-sent_counts.columns = ["Sentiment", "Count"]
-
-fig_sent = px.bar(
-    sent_counts,
-    x="Sentiment",
-    y="Count",
-    title="Sentiment Distribution"
-)
-
-st.plotly_chart(fig_sent, use_container_width=True)
-
-# ======================================
-# LOAD EMOTION MODEL
-# ======================================
 @st.cache_resource
-def load_emotion_model():
-    return pipeline(
+def load_models():
+    sentiment_model = pipeline(
+        "sentiment-analysis",
+        model="cardiffnlp/twitter-roberta-base-sentiment"
+    )
+
+    emotion_model = pipeline(
         "text-classification",
         model="j-hartmann/emotion-english-distilroberta-base",
         return_all_scores=False
     )
 
-emotion_model = load_emotion_model()
+    return sentiment_model, emotion_model
 
-# ======================================
-# EMOTION DISTRIBUTION (SAMPLED)
-# ======================================
-st.subheader("Emotion Distribution")
+sentiment_model, emotion_model = load_models()
 
-sample_df = df.sample(min(300, len(df)), random_state=42)
-sample_df["emotion"] = sample_df["text"].apply(
-    lambda x: emotion_model(x)[0]["label"]
+label_map = {
+    "LABEL_0": "Negative",
+    "LABEL_1": "Neutral",
+    "LABEL_2": "Positive"
+}
+
+user_text = st.text_area(
+    "Enter review or social media text:",
+    height=120,
+    placeholder="Example: I am very angry and disappointed with the service."
 )
 
-emo_counts = sample_df["emotion"].value_counts().reset_index()
-emo_counts.columns = ["Emotion", "Count"]
+if st.button("Analyze") and user_text.strip():
 
-fig_emo = px.bar(
-    emo_counts,
-    x="Emotion",
-    y="Count",
-    title="Emotion Distribution"
-)
+    sent_out = sentiment_model(user_text)[0]
+    sentiment = label_map[sent_out["label"]]
+    sent_score = sent_out["score"]
 
-st.plotly_chart(fig_emo, use_container_width=True)
+    emo_out = emotion_model(user_text)[0]
+    emotion = emo_out["label"]
+    emo_score = emo_out["score"]
 
-# ======================================
-# WORD CLOUD - BY SENTIMENT
-# ======================================
-st.subheader("☁️ WordCloud by Sentiment")
+    col1, col2 = st.columns(2)
 
-col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Sentiment", sentiment, f"{sent_score:.2f}")
 
-with col1:
-    st.write("Positive Reviews")
-    pos_text = " ".join(df[df["airline_sentiment"] == "positive"]["text"])
-    wc_pos = WordCloud(
-        width=600, height=400, background_color="white"
-    ).generate(pos_text)
+    with col2:
+        st.metric("Emotion", emotion.capitalize(), f"{emo_score:.2f}")
 
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_pos, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+    st.divider()
 
-with col2:
-    st.write("Negative Reviews")
-    neg_text = " ".join(df[df["airline_sentiment"] == "negative"]["text"])
-    wc_neg = WordCloud(
-        width=600, height=400, background_color="white"
-    ).generate(neg_text)
+    df_sent = pd.DataFrame({
+        "Category": [sentiment],
+        "Confidence": [sent_score]
+    })
 
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_neg, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+    df_emo = pd.DataFrame({
+        "Emotion": [emotion],
+        "Confidence": [emo_score]
+    })
 
-# ======================================
-# WORD CLOUD - BY EMOTION ⭐ NEW
-# ======================================
-st.subheader("☁️ WordCloud by Emotion")
+    fig1 = px.bar(df_sent, x="Category", y="Confidence", range_y=[0,1])
+    fig2 = px.bar(df_emo, x="Emotion", y="Confidence", range_y=[0,1])
 
-selected_emotion = st.selectbox(
-    "Select Emotion",
-    sorted(sample_df["emotion"].unique())
-)
+    col3, col4 = st.columns(2)
 
-emotion_text = " ".join(
-    sample_df[sample_df["emotion"] == selected_emotion]["text"]
-)
+    with col3:
+        st.plotly_chart(fig1, use_container_width=True)
 
-if emotion_text.strip():
-    wc_emotion = WordCloud(
-        width=800,
-        height=400,
-        background_color="white"
-    ).generate(emotion_text)
-
-    plt.figure(figsize=(8,4))
-    plt.imshow(wc_emotion, interpolation="bilinear")
-    plt.axis("off")
-    plt.title(f"WordCloud for Emotion: {selected_emotion.capitalize()}")
-    st.pyplot(plt)
-else:
-    st.warning("Not enough text for selected emotion.")
+    with col4:
+        st.plotly_chart(fig2, use_container_width=True)
