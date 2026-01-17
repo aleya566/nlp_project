@@ -83,33 +83,23 @@ st.plotly_chart(fig_emo, use_container_width=True)
 # ======================================
 # WORD CLOUD - BY SENTIMENT
 # ======================================
+
 st.subheader("☁️ WordCloud by Sentiment")
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.write("Positive Reviews")
-    pos_text = " ".join(df[df["airline_sentiment"] == "positive"]["text"])
-    wc_pos = WordCloud(
-        width=600, height=400, background_color="white"
-    ).generate(pos_text)
-
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_pos, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+    st.write("Positive")
+    text = " ".join(df[df["airline_sentiment"] == "positive"]["text"])
 
 with col2:
-    st.write("Negative Reviews")
-    neg_text = " ".join(df[df["airline_sentiment"] == "negative"]["text"])
-    wc_neg = WordCloud(
-        width=600, height=400, background_color="white"
-    ).generate(neg_text)
+    st.write("Neutral")
+    text = " ".join(df[df["airline_sentiment"] == "neutral"]["text"])
 
-    plt.figure(figsize=(6,4))
-    plt.imshow(wc_neg, interpolation="bilinear")
-    plt.axis("off")
-    st.pyplot(plt)
+with col3:
+    st.write("Negative")
+    text = " ".join(df[df["airline_sentiment"] == "negative"]["text"])
+
 
 # ======================================
 # WORD CLOUD - BY EMOTION ⭐ NEW
