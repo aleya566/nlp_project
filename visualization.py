@@ -59,10 +59,17 @@ emotion_model = load_emotion_model()
 # EMOTION DISTRIBUTION (SAMPLED)
 # ======================================
 st.subheader("Emotion Distribution")
-sample_df = df.sample(min(300, len(df)), random_state=42)
-sample_df["emotion"] = sample_df["text"].apply(
-    lambda x: emotion_model(x)[0]["label"]
-)
+
+# ✅ FIX: Cache sample_df supaya tidak berubah setiap kali re-run
+@st.cache_data
+def get_emotion_data(_emotion_model, data):
+    sample = data.sample(min(300, len(data)), random_state=42)
+    sample["emotion"] = sample["text"].apply(
+        lambda x: _emotion_model(x)[0]["label"]
+    )
+    return sample
+
+sample_df = get_emotion_data(emotion_model, df)
 
 emo_counts = sample_df["emotion"].value_counts().reset_index()
 emo_counts.columns = ["Emotion", "Count"]
