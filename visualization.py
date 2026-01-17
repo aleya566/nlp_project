@@ -1,117 +1,141 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
 import plotly.express as px
+from transformers import pipeline
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
-st.title("📊 Sentiment & Emotion Visualization Dashboard")
+st.title("📊 Dataset Visualization Dashboard")
 
-# =========================
-# Load Dataset
-# =========================
-uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
+# ======================================
+# DATASET UPLOAD
+# ======================================
+st.subheader("📤 Upload Dataset")
 
-if uploaded_file:
+uploaded_file = st.file_uploader(
+    "Upload CSV file (must contain 'text' and 'airline_sentiment' columns)",
+    type=["csv"]
+)
+
+@st.cache_data
+def load_default_data():
+    return pd.read_csv("data/Tweets.csv")
+
+if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
+    st.success("Custom dataset loaded successfully!")
 else:
-    st.warning("Please upload a CSV file to view visualizations.")
-    st.stop()
+    df = load_default_data()
+    st.info("Using default Tweets.csv dataset")
 
-# Expected columns
-# text, sentiment, emotion
-
-# =========================
-# Sentiment Distribution
-# =========================
+# ======================================
+# SENTIMENT DISTRIBUTION
+# ======================================
 st.subheader("Sentiment Distribution")
 
-sentiment_counts = df["sentiment"].value_counts().reset_index()
-sentiment_counts.columns = ["Sentiment", "Count"]
+sent_counts = df["airline_sentiment"].value_counts().reset_index()
+sent_counts.columns = ["Sentiment", "Count"]
 
 fig_sent = px.bar(
-    sentiment_counts,
+    sent_counts,
     x="Sentiment",
     y="Count",
-    color="Sentiment",
-    title="Sentiment Polarity Distribution"
+    title="Sentiment Distribution"
 )
+
 st.plotly_chart(fig_sent, use_container_width=True)
 
-# =========================
-# Emotion Distribution
-# =========================
+# ======================================
+# LOAD EMOTION MODEL
+# ======================================
+@st.cache_resource
+def load_emotion_model():
+    return pipeline(
+        "text-classification",
+        model="j-hartmann/emotion-english-distilroberta-base",
+        return_all_scores=False
+    )
+
+emotion_model = load_emotion_model()
+
+# ======================================
+# EMOTION DISTRIBUTION (SAMPLED)
+# ======================================
 st.subheader("Emotion Distribution")
 
-emotion_counts = df["emotion"].value_counts().reset_index()
-emotion_counts.columns = ["Emotion", "Count"]
+sample_df = df.sample(min(300, len(df)), random_state=42)
+sample_df["emotion"] = sample_df["text"].apply(
+    lambda x: emotion_model(x)[0]["label"]
+)
+
+emo_counts = sample_df["emotion"].value_counts().reset_index()
+emo_counts.columns = ["Emotion", "Count"]
 
 fig_emo = px.bar(
-    emotion_counts,
+    emo_counts,
     x="Emotion",
     y="Count",
-    color="Emotion",
-    title="Emotion Classification Distribution"
+    title="Emotion Distribution"
 )
+
 st.plotly_chart(fig_emo, use_container_width=True)
 
-# =========================
-# Sentiment WordClouds
-# =========================
-st.subheader("Sentiment WordClouds")
-
-pos_text = " ".join(df[df["sentiment"] == "positive"]["text"].astype(str))
-neg_text = " ".join(df[df["sentiment"] == "negative"]["text"].astype(str))
+# ======================================
+# WORD CLOUD - BY SENTIMENT
+# ======================================
+st.subheader("☁️ WordCloud by Sentiment")
 
 col1, col2 = st.columns(2)
 
 with col1:
+    st.write("Positive Reviews")
+    pos_text = " ".join(df[df["airline_sentiment"] == "positive"]["text"])
     wc_pos = WordCloud(
-        width=600,
-        height=400,
-        background_color="white"
+        width=600, height=400, background_color="white"
     ).generate(pos_text)
 
-    fig_pos, ax_pos = plt.subplots(figsize=(6,4))
-    ax_pos.imshow(wc_pos, interpolation="bilinear")
-    ax_pos.axis("off")
-    ax_pos.set_title("Positive Sentiment")
-    st.pyplot(fig_pos)
+    plt.figure(figsize=(6,4))
+    plt.imshow(wc_pos, interpolation="bilinear")
+    plt.axis("off")
+    st.pyplot(plt)
 
 with col2:
+    st.write("Negative Reviews")
+    neg_text = " ".join(df[df["airline_sentiment"] == "negative"]["text"])
     wc_neg = WordCloud(
-        width=600,
-        height=400,
-        background_color="white"
+        width=600, height=400, background_color="white"
     ).generate(neg_text)
 
-    fig_neg, ax_neg = plt.subplots(figsize=(6,4))
-    ax_neg.imshow(wc_neg, interpolation="bilinear")
-    ax_neg.axis("off")
-    ax_neg.set_title("Negative Sentiment")
-    st.pyplot(fig_neg)
+    plt.figure(figsize=(6,4))
+    plt.imshow(wc_neg, interpolation="bilinear")
+    plt.axis("off")
+    st.pyplot(plt)
 
-# =========================
-# Emotion-Based WordCloud (OPTIONAL / ADVANCED)
-# =========================
-st.subheader("Emotion-Based WordCloud (Optional)")
+# ======================================
+# WORD CLOUD - BY EMOTION ⭐ NEW
+# ======================================
+st.subheader("☁️ WordCloud by Emotion")
 
 selected_emotion = st.selectbox(
     "Select Emotion",
-    df["emotion"].unique()
+    sorted(sample_df["emotion"].unique())
 )
 
 emotion_text = " ".join(
-    df[df["emotion"] == selected_emotion]["text"].astype(str)
+    sample_df[sample_df["emotion"] == selected_emotion]["text"]
 )
 
-wc_emo = WordCloud(
-    width=800,
-    height=400,
-    background_color="white"
-).generate(emotion_text)
+if emotion_text.strip():
+    wc_emotion = WordCloud(
+        width=800,
+        height=400,
+        background_color="white"
+    ).generate(emotion_text)
 
-fig_emo_wc, ax_emo_wc = plt.subplots(figsize=(8,4))
-ax_emo_wc.imshow(wc_emo, interpolation="bilinear")
-ax_emo_wc.axis("off")
-ax_emo_wc.set_title(f"Emotion WordCloud: {selected_emotion}")
-st.pyplot(fig_emo_wc)
+    plt.figure(figsize=(8,4))
+    plt.imshow(wc_emotion, interpolation="bilinear")
+    plt.axis("off")
+    plt.title(f"WordCloud for Emotion: {selected_emotion.capitalize()}")
+    st.pyplot(plt)
+else:
+    st.warning("Not enough text for selected emotion.")
