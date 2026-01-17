@@ -9,7 +9,7 @@ st.title("📊 Dataset Visualization Dashboard")
 
 @st.cache_data
 def load_data():
-    return pd.read_csv("data/Tweets.csv")
+    return pd.read_csv("Tweets.csv")
 
 df = load_data()
 
