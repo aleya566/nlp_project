@@ -19,7 +19,7 @@ uploaded_file = st.file_uploader(
 
 @st.cache_data
 def load_default_data():
-    return pd.read_csv("data/Tweets.csv")
+    return pd.read_csv("Tweets.csv")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
